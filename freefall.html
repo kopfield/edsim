@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Falling Objects Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: start;
+        }
+        .simulation-container, .graph-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            flex: 1;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            max-width: 100%;
+        }
+        .controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        select, button {
+            padding: 8px 16px;
+            margin: 0 10px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        h1 {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Falling Objects Simulation</h1>
+    <div class="controls">
+        <select id="planetSelect">
+            <option value="mercury">Mercury (3.7 m/s²)</option>
+            <option value="venus">Venus (8.87 m/s²)</option>
+            <option value="earth" selected>Earth (9.81 m/s²)</option>
+            <option value="moon">Moon (1.62 m/s²)</option>
+            <option value="mars">Mars (3.72 m/s²)</option>
+            <option value="jupiter">Jupiter (24.79 m/s²)</option>
+            <option value="saturn">Saturn (10.44 m/s²)</option>
+            <option value="uranus">Uranus (8.87 m/s²)</option>
+            <option value="neptune">Neptune (11.15 m/s²)</option>
+            <option value="pluto">Pluto (0.62 m/s²)</option>
+        </select>
+        <button onclick="startSimulation()">Start Simulation</button>
+    </div>
+    <div class="container">
+        <div class="simulation-container">
+            <canvas id="simulationCanvas" width="400" height="600"></canvas>
+        </div>
+        <div class="graph-container">
+            <canvas id="velocityGraph" width="400" height="600"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        const graphCanvas = document.getElementById('velocityGraph');
+        
+        // Physics constants
+        const gravity = {
+            mercury: 3.7,
+            venus: 8.87,
+            earth: 9.81,
+            moon: 1.62,
+            mars: 3.72,
+            jupiter: 24.79,
+            saturn: 10.44,
+            uranus: 8.87,
+            neptune: 11.15,
+            pluto: 0.62
+        };
+        
+        // Simulation variables
+        let time = 0;
+        let isRunning = false;
+        let lastUpdateTime = 0;
+        let velocityData = {
+            labels: [],
+            feather: [],
+            hammer: []
+        };
+        
+        // Object properties
+        const objects = {
+            feather: {
+                y: 50,
+                velocity: 0,
+                color: '#FFD700',
+                label: 'Feather'
+            },
+            hammer: {
+                y: 50,
+                velocity: 0,
+                color: '#4169E1',
+                label: 'Hammer'
+            }
+        };
+        
+        // Initialize velocity-time graph
+        let velocityChart = new Chart(graphCanvas, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Feather Velocity',
+                    data: [],
+                    borderColor: '#FFD700',
+                    tension: 0.1
+                },
+                {
+                    label: 'Hammer Velocity',
+                    data: [],
+                    borderColor: '#4169E1',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Time (s)'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Velocity (m/s)'
+                        }
+                    }
+                }
+            }
+        });
+        
+        function drawObject(x, y, color, label) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, 20, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'black';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, x, y - 30);
+        }
+        
+        function updateSimulation(deltaTime) {
+            const g = gravity[document.getElementById('planetSelect').value];
+            
+            for (let obj of ['feather', 'hammer']) {
+                objects[obj].velocity += g * deltaTime;
+                objects[obj].y += objects[obj].velocity * deltaTime * 50; // Scale factor for visibility
+            }
+            
+            // Update graph data more frequently (every 0.1 seconds)
+            if (time - lastUpdateTime >= 0.1) {
+                velocityData.labels.push(time.toFixed(1));
+                velocityData.feather.push(objects.feather.velocity);
+                velocityData.hammer.push(objects.hammer.velocity);
+                
+                velocityChart.data.labels = velocityData.labels;
+                velocityChart.data.datasets[0].data = velocityData.feather;
+                velocityChart.data.datasets[1].data = velocityData.hammer;
+                velocityChart.update();
+                
+                lastUpdateTime = time;
+            }
+        }
+        
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw feather and hammer
+            drawObject(canvas.width * 0.3, objects.feather.y, objects.feather.color, 'Feather');
+            drawObject(canvas.width * 0.7, objects.hammer.y, objects.hammer.color, 'Hammer');
+            
+            // Draw current velocity values
+            ctx.fillStyle = 'black';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(`Feather velocity: ${objects.feather.velocity.toFixed(2)} m/s`, 10, 30);
+            ctx.fillText(`Hammer velocity: ${objects.hammer.velocity.toFixed(2)} m/s`, 10, 50);
+            ctx.fillText(`Time: ${time.toFixed(1)} s`, 10, 70);
+        }
+        
+        function gameLoop(timestamp) {
+            if (!isRunning) return;
+            
+            const deltaTime = 0.016; // Fixed time step
+            time += deltaTime;
+            
+            updateSimulation(deltaTime);
+            render();
+            
+            // Stop if objects reach bottom
+            if (objects.feather.y < canvas.height - 20) {
+                requestAnimationFrame(gameLoop);
+            } else {
+                isRunning = false;
+            }
+        }
+        
+        function startSimulation() {
+            // Reset simulation
+            time = 0;
+            lastUpdateTime = 0;
+            velocityData = {
+                labels: [],
+                feather: [],
+                hammer: []
+            };
+            velocityChart.data.labels = [];
+            velocityChart.data.datasets[0].data = [];
+            velocityChart.data.datasets[1].data = [];
+            velocityChart.update();
+            
+            for (let obj of ['feather', 'hammer']) {
+                objects[obj].y = 50;
+                objects[obj].velocity = 0;
+            }
+            
+            isRunning = true;
+            gameLoop();
+        }
+        
+        // Initial render
+        render();
+    </script>
+</body>
+</html>
